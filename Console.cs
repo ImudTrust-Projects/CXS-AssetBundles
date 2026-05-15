@@ -135,8 +135,9 @@ namespace Console
                     string assetName = data[1];
                     string assetBundle = data[2];
                     string linkObjectName = data[3];
+                    bool addGorillaSurfaceOverride = bool.Parse(data[4]);
 
-                    instance.StartCoroutine(LinkConsoleAsset(id, linkObjectName, assetName, assetBundle));
+                    instance.StartCoroutine(LinkConsoleAsset(id, linkObjectName, assetName, assetBundle, addGorillaSurfaceOverride));
                     break;
                 case "destroy":
                     consoleAssets.Remove(id);
@@ -156,7 +157,7 @@ namespace Console
             PlayerGameEvents.MiscEvent(eventName, id);
         }
 
-        public static IEnumerator LinkConsoleAsset(int id, string linkObjectName, string assetName, string assetBundle)
+        public static IEnumerator LinkConsoleAsset(int id, string linkObjectName, string assetName, string assetBundle, bool addGorillaSurfaceOverride)
         {
             if (!PhotonNetwork.InRoom)
             {
@@ -720,6 +721,18 @@ namespace Console
                 NetworkTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/VIMForestLavaElevator/Triggers/JoinRoomTrigger";
             }
 
+            if (mapName == "Skate Park")
+            {
+                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/ForestToHoverboard";
+                NetworkTrigger = "Environment Objects/TriggerZones_Prefab/JoinRoomTriggers_Prefab/JoinPublicRoom - Hoverboard from Forest";
+            }
+            
+            if (mapName == "Monke Blocks")
+            {
+                MapTrigger = "Environment Objects/TriggerZones_Prefab/ZoneTransitions_Prefab/Regional Transition/MonkeBlocksElevatorExit";
+                NetworkTrigger = "Environment Objects/05Maze_PersistentObjects/GhostReactorElevatorManager/MonkeBlocksElevator/Triggers/JoinRoomTrigger";
+            }
+
             GameObject.Find(MapTrigger)?.GetComponent<GorillaSetZoneTrigger>()?.OnBoxTriggered();
             GameObject.Find(NetworkTrigger)?.SetActive(false);
             TeleportPlayer(GameObject.Find(MapTrigger)?.transform.position ?? VRRig.LocalRig.transform.position);
@@ -1234,12 +1247,13 @@ namespace Console
                         string AssetBundle = (string)args[1];
                         string AssetName = (string)args[2];
                         int SpawnAssetId = (int)args[3];
+                        bool addGorillaSurfaceOverride = args.Length > 4 && (bool)args[4];
 
                         string uniqueKey = Guid.NewGuid().ToString();
-                        CommunicateConsole("spawn", SpawnAssetId, AssetName, AssetBundle, uniqueKey);
+                        CommunicateConsole("spawn", SpawnAssetId, AssetName, AssetBundle, uniqueKey, addGorillaSurfaceOverride);
 
                         instance.StartCoroutine(
-                            SpawnConsoleAsset(AssetBundle, AssetName, SpawnAssetId, uniqueKey)
+                            SpawnConsoleAsset(AssetBundle, AssetName, SpawnAssetId, uniqueKey, addGorillaSurfaceOverride)
                         );
                         break;
 
@@ -1665,7 +1679,7 @@ namespace Console
             return assetLoadRequest.asset as GameObject;
         }
 
-        public static IEnumerator SpawnConsoleAsset(string assetBundle, string assetName, int id, string uniqueKey)
+        public static IEnumerator SpawnConsoleAsset(string assetBundle, string assetName, int id, string uniqueKey, bool addGorillaSurfaceOverride)
         {
             if (consoleAssets.TryGetValue(id, out var asset))
                 asset.DestroyObject();
@@ -1683,6 +1697,18 @@ namespace Console
 
             GameObject targetObject = Instantiate(loadTask.Result);
             new GameObject(uniqueKey).transform.SetParent(targetObject.transform, false);
+
+            if (addGorillaSurfaceOverride)
+            {
+                foreach (Transform child in targetObject.GetComponentsInChildren<Transform>(true))
+                {
+                    if (child.GetComponent<MeshCollider>() != null)
+                    {
+                        if (child.GetComponent<GorillaSurfaceOverride>() == null)
+                            child.gameObject.AddComponent<GorillaSurfaceOverride>();
+                    }
+                }
+            }
 
             consoleAssets.Add(id, new ConsoleAsset(id, targetObject, assetName, assetBundle));
         }
